@@ -605,3 +605,194 @@ interval(1000).pipe(
 Comme vu précédement, on peut souscire  à un Observable et afficher ses émissions dans le DOM avec le pipe async.
 
 >**Dans ce cas,TOUT Observable souscrit avec le `pipe async` est automatiquement unsubscribe lors de la destruction du component qui le consomme.**
+
+## les formulaires ##
+
+### template forms ###
+
+On import dans `app.module.ts` : FormsModule
+
+- Le formulaire sera sur notre landing page, du coup ds le template de la landing page on créé un form.
+  
+  ```
+  <form>
+    <label for="emailInput">inscrivez-vous à notre newsLetter</label>
+    <input type="email" id="emailInput"/>
+    <button type="submit">S'inscrire</button>
+  </form>
+  ```
+
+  - dans le ts, on créé la variable userEmail qui sera le contenu de l'input, et on import NgForm pour pouvoir utiliser le formulaire.
+
+  `userEmail!: string;` et une méthode pour console log le contenu de l'input, `onSubmitForm(form: NgFrom): void {
+    console.log(form.value);
+  }`
+  - il faut lier la valeur de l'input à la variable userEmail, pour cela dans l'input, on utilise la liaison double sens grâce à : `[(ngModel)]="userEmail"` il faut rajouter : `name="userEmail"`, car on va récupérer TOUS les champs du formulaire dans un objet form ou les clefs seront les names.
+  - pour lier le bouton à l'événement, on peut ds la balise `form`, ajouter l évenement`(ngSubmit)="onSubmitForm()"` et il faut créer un référence local du formulaire pour pouvoir le passer au TS :
+
+  ```
+  <form #emailForm="ngForm" (ngSubmit)="onSubmitForm(emailForm)" >
+  ```
+
+  **ATTENTION ngForm avezc un n minuscule c'est une directive placée sur toutes les balises form à l'import de FormsModule**
+
+### reactive forms ###
+
+contrairement au template forms, avec les reactive forms le formulaire est directement dans le TS, on vient ensuite relier les différents  input  du template à l'objet du formulaire.
+
+**_Comme leur nom l'indique, les formulaires réactifs mettent à disposition des Observables pour réagir en temps réel aux valeurs entrées par l'utilisateur ;
+les formulaires réactifs permettent une validation beaucoup plus approfondie ;
+pour générer des formulaires totalement dynamiques – c'est-à-dire des formulaires dont vous ne connaissez pas la structure en amont – les formulaires réactifs sont la seule solution._**
+
+- on import ReactiveFormsModule dans le module app.module.ts
+pour l'exemple on va créer un nouveau composant, auquel on accédera via la route create que l'on rajoute au routing.
+- dans le header on rajoute une méthode onAddNewFaceSnap() qui réagira au click pour rediriger vers la route, on doit donc dans le constructeur ajouter le router.
+
+  ```
+  onAddNewFaceSnap(): void{
+    this.router.navigateByUrl('/create');
+  }
+  ```
+
+-dans le tempalte on rajoute un bouton qui réagira au click pour appeler la méthode onAddNewFaceSnap()
+  `<button type="button" (click)="onAddNewFaceSnap()">Ajouter une photo</button>`
+
+- création du formulaire dans le TS:
+  1. on commence par créer l'objet qui va contenir le formulaire  `snapFrom!: FormGroup;`,
+  2. pour générer ce formGroup, on ajoute au constructeur formBuilder.
+  3. dans le onInit on doit initialiser le formulaire: `this.snapForm = this.formBuilder.group();`, et on lui rajoute un objet de configuration dans lequel on va associer le nom des champs à leurs valeurs par defaut.
+
+```
+  this.snapForm = this.formBuilder.group({
+      title: [null],
+      description: [null],
+      imageUrl: [null],
+      location: [null]
+    });
+```
+
+ 4. on créé une mhéthode pour la soumission du formulaire
+
+  ```
+  onSubmitForm(): void {
+    console.log(this.snapForm.value);
+  }
+  ```
+
+- création du template du formulaire
+  1. pour un formulaire réactif, on utilisera pas la référence local mais l'attibut formGroup avec les champs créés dans te TS.
+  
+  ```
+  <form [formGroup]="snapForm">
+    <div class="form-group">
+      <label for="title">Titre</label>
+      <input type="text" id="title" formControlName="title" />
+    </div>
+    <div class="form-group">
+      <label for="description">Description</label>
+      <textarea
+        id="description"
+        type="text"
+        formControlName="description"
+        rows="4"
+      >
+      </textarea>
+    </div>
+    <div class="form-group">
+      <label for="title">URL de l'image</label>
+      <input type="text" id="imageUrl" formControlName="imageUrl" />
+    </div>
+    <div class="form-group">
+      <label for="location">Lieu</label>
+      <input type="text" id="location" formControlName="location" />
+    </div>
+    <div class="action-buttons">
+      <button type="submit" (click)="onSubmitForm()">Enregistrer</button>
+    </div>
+  </form>
+  ```
+
+  1. pour profiter du coté réactif, il faut créer un observable `faceSnapPreview$ : Observable<FaceSnap>;`, et dans le ngOnInit, il faut l'initialiser `this.faceSnapPreview$ = this.snapForm.valueChanges;`
+  2. pour que l'observable  genere bien des faceSnap, il faut rajouter les champs manquant dans le formulaire :
+
+   ```
+   this.faceSnapPreview$ = this.snapForm.valueChanges.pipe(
+      map(formValue => ({
+        ...formValue, on utilise l'opérateur spread pour rajouter les champs manquant à l'objet formValue
+        createdDate: new Date(),
+        id: 0,
+        snaps: 0
+      }))
+    );
+    ```
+
+  3. on créé une div face-snap-card pour afficher le faceSnapPreview$ et on lui donne un alias
+
+  ```
+
+ <div class="face-snap-card" *ngIf="faceSnapPreview$ | async as faceSnap">
+  <h2>{{ faceSnap.title | uppercase }}</h2>
+  <p>
+    Mis en ligne {{ faceSnap.createdDate | date: "à HH:mm, le d MMMM yyyy" }}
+  </p>
+  <img [src]="faceSnap.imageUrl" [alt]="faceSnap.title" />
+  <p>{{ faceSnap.description }}</p>
+<p*ngIf="faceSnap.location">Photo prise à {{ faceSnap.location }}</p>
+</div>
+  ```
+
+### Les Validators ###
+
+  1. on va rendre obligatoire les champs requis
+  
+  ```
+  title: [null, Validators.required],
+  description: [null, Validators.required],
+  imageUrl: [null, Validators.required]
+
+  ```
+
+  2. on va rendre le boutton accessible uniquement si le formulaire est valide
+  `<button
+        type="submit"
+        (click)="onSubmitForm()"
+        [disabled]="snapForm.invalid"
+      >
+        Enregistrer
+      </button>`*
+
+  3. on va valider que le champ imageUrl soit une URL valide. **pour ajouter plusieurs Validators, ils faut les passer dans un tableau**
+  pour cela il faut créer un objet urlRegex de type RegExp, l'initialiser dans le ngOninit en lui passant la regex, et daans le validator, on lui passe la regex en parametre du pattern.
+
+  ```
+  this.urlRegex = /(http(s)?:\/\/.)?(www\.)?[-a-zA-Z0-9@:%._+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_+.~#?&/=]*)/;
+  imageUrl: [null, [Validators.required,
+  Validators.pattern(this.urlRegex)]],
+  ```
+
+  **Si on regarde dans la console, on voit pleins d'erreurs 404, c'est du au fait que notre form réagit a chaque changement. Pour corriger cela on passe un second objet de configuratiopn à formBuilder pour lui dire de mettre à jour quye si l'utilisateur change de champ
+  `{updateOn: 'blur'}`**
+
+  ## création du service pour la sauvegarde du faceSnap ##
+
+  1. on créé dans le service FaceSnapService une méthode addFaceSnap qui va permettre d'ajouter un faceSnap :
+  ```
+  addFaceSnap(formValue: { title: string, description: string, imageUrl: string, location?: string }): void {
+    const faceSnap: FaceSnap = {
+      ...formValue,
+      createdDate: new Date(),
+      snaps: 0,
+      id: this.faceSnaps[this.faceSnaps.length - 1].id + 1
+    };
+    this.faceSnaps.push(faceSnap);
+  }
+  ```
+  2. dans le ts du new faceSnapComponent, on va rajouter au constructeur le service FaceSnapService ainsi que le router
+  3. au lieu de logger le faceSnap, dans la méthode onSubmitForm, on va appeler la méthode addFaceSnap du service et rediriger l'utilisateur vers la liste des faceSnaps
+
+  ```
+  onSubmitForm(): void {
+      this.faceSnapService.addFaceSnap(this.snapForm.value);
+      this.router.navigate(['/']);
+    }
+  ```
