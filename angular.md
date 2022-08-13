@@ -776,6 +776,7 @@ pour l'exemple on va créer un nouveau composant, auquel on accédera via la rou
   ## création du service pour la sauvegarde du faceSnap ##
 
   1. on créé dans le service FaceSnapService une méthode addFaceSnap qui va permettre d'ajouter un faceSnap :
+
   ```
   addFaceSnap(formValue: { title: string, description: string, imageUrl: string, location?: string }): void {
     const faceSnap: FaceSnap = {
@@ -787,6 +788,7 @@ pour l'exemple on va créer un nouveau composant, auquel on accédera via la rou
     this.faceSnaps.push(faceSnap);
   }
   ```
+
   2. dans le ts du new faceSnapComponent, on va rajouter au constructeur le service FaceSnapService ainsi que le router
   3. au lieu de logger le faceSnap, dans la méthode onSubmitForm, on va appeler la méthode addFaceSnap du service et rediriger l'utilisateur vers la liste des faceSnaps
 
@@ -795,4 +797,51 @@ pour l'exemple on va créer un nouveau composant, auquel on accédera via la rou
       this.faceSnapService.addFaceSnap(this.snapForm.value);
       this.router.navigate(['/']);
     }
+  ```
+
+## Les requêtes HTTP ##
+
+- HTTPClient : service qui permet de faire des requêtes HTTP pour pouvoir l'utiliser il faut importer le module HttpClientModule dans le fichier app.module.ts
+
+c'est le faceSnapService qui va faire les requêtes HTTP , il faut donc ajouter un constructeur , à qui on passera le HttpClient
+`constructor(private http: HttpClient) { }`
+
+**Les requêtes HTTP en angular retournent des Observables car ils gérent l'assynchrone**
+
+1. On commence par face-snap-list
+
+- ds le ts on créé un observable faceSnaps$ qui va permettre de récupérer la liste des faceSnaps
+- dans le service on modifie la méthode getFaceSnaps qui va retourner un observable de tableau de faceSnaps
+
+  ```
+  getAllFaceSnaps(): Observable<FaceSnap[]> {
+    return this.http.get<FaceSnap[]>('http://localhost:3000/facesnaps');
+  }
+  ```
+
+- dans le face-snap-list, on associé la méthode getAllFaceSnaps au service faceSnapService
+  `this.faceSnaps$ = this.faceSnapsService.getAllFaceSnaps();`
+- dans le template on va souscrire à l'observable en utilisant le pipe async
+
+2. pour le get d'un faceSnap par son Id
+
+- dans le ts on créé un observable faceSnap$ qui va permettre de récupérer un faceSnap
+`this.faceSnap$ = this.faceSnapsService.getFaceSnapById(faceSnapId);`
+- dans le service on modifie la méthode getFaceSnap qui va retourner un observable de faceSnap
+
+  ```
+  getFaceSnapById(faceSnapId: number): Observable<FaceSnap>{
+
+return this.http.get<FaceSnap>(`http://localhost:3000/facesnaps/${faceSnapId}`);
+  }
+  ```
+
+- dans le template on utilise un ng if dans la div principale, et on souscrive à l'observable en utilisant le pipe async
+
+  ```
+  <div
+  class="face-snap-card"
+  *ngIf="faceSnap$ | async as faceSnap"
+  [ngClass]="{ snapped: buttonText === 'Oops, unSnap!' }">
+
   ```
