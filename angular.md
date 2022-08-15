@@ -801,6 +801,8 @@ pour l'exemple on va créer un nouveau composant, auquel on accédera via la rou
 
 ## Les requêtes HTTP ##
 
+### les requêtes simples ###
+
 - HTTPClient : service qui permet de faire des requêtes HTTP pour pouvoir l'utiliser il faut importer le module HttpClientModule dans le fichier app.module.ts
 
 c'est le faceSnapService qui va faire les requêtes HTTP , il faut donc ajouter un constructeur , à qui on passera le HttpClient
@@ -834,14 +836,71 @@ c'est le faceSnapService qui va faire les requêtes HTTP , il faut donc ajouter 
 
 return this.http.get<FaceSnap>(`http://localhost:3000/facesnaps/${faceSnapId}`);
   }
+
   ```
 
 - dans le template on utilise un ng if dans la div principale, et on souscrive à l'observable en utilisant le pipe async
 
   ```
+
   <div
   class="face-snap-card"
   *ngIf="faceSnap$ | async as faceSnap"
   [ngClass]="{ snapped: buttonText === 'Oops, unSnap!' }">
-
   ```
+  
+### les requêtes composées ###
+
+1. il faut ré-implémenter la possibilité de snap un faceSnap, on modifie donc le coposant single-face-snap et le template.
+
+- dans le component, on passe en parametre de la méthode onSnap le faceSnapId
+
+  ```onSnap(faceSnapId: number): void {
+    this.faceSnapsService.snapFaceSnapById(faceSnapId, 'snap');
+  }
+  ```
+
+- dans le template on passe à la méthode onSnap faceSnap.id
+`<button (click)="onSnap(faceSnap.id)">{{ buttonText }}</button>`
+
+2. il faut ré-implémenter le compteur de snap
+
+- dans le service la méthode snapFaceSnapById ne renvois plus void, mais un Observable du type FaceSnap
+on utilisse la méthode getFaceSnapById pour récupérer le faceSnap et on utilise des pipes
+
+```
+snapFaceSnapById(faceSnapId: number, snapType: 'snap' | 'unsnap'): Observable<FaceSnap> {
+   return this.getFaceSnapById(faceSnapId).pipe(
+      map(faceSnap => ({
+        ...faceSnap,
+        snaps: faceSnap.snaps + (snapType === 'snap' ? 1 : -1)
+      }))
+   )}
+```
+à ce niveau on a récupérer le bon faceSnap et on ajoute ou enlève un snap, il faut maintenant ré-implémenter le template pour afficher le bon nombre de snap avec une requête PUT
+
+```
+snapFaceSnapById(faceSnapId: number, snapType: 'snap' | 'unsnap'): Observable<FaceSnap> {
+   return this.getFaceSnapById(faceSnapId).pipe(
+      map(faceSnap => ({
+        ...faceSnap,
+        snaps: faceSnap.snaps + snapType === 'snap' ? 1 : -1
+      })),
+      switchMap(updatedFaceSnap => this.http.put<FaceSnap>(`http://localhost:3000/facesnaps/${faceSnapId}`, updatedFaceSnap))
+   )}
+```
+- dans le component il faut que la méthode onSnap souscrive à l'Observable, comme on attend une réponse du serveur, on est en assynchrone, on utilise un pipe pour pouvoir générer nos actions .
+
+```
+onSnap(faceSnapId: number) {
+    if (this.buttonText === 'Oh Snap!') {
+      this.faceSnap$= this.faceSnapsService.snapFaceSnapById(faceSnapId, 'snap').pipe(
+        tap(()=> this.buttonText = 'Oops, unSnap!')
+      )
+    } else {
+      this.faceSnap$ = this.faceSnapsService.snapFaceSnapById(faceSnapId, 'unsnap').pipe(
+        tap(()=> this.buttonText = 'Oh Snap!')
+      );
+    }
+  }
+```
